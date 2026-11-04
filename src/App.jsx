@@ -35,6 +35,7 @@ import {
   calculateDistanceMeters
 } from './data/summonsData';
 import TacticalRadarMap from './components/TacticalRadarMap';
+import VenueMapPreview from './components/VenueMapPreview';
 
 // Pure Web Audio API Sound Synthesizer (Zero External Audio Assets)
 const playTacticalSound = (type = 'click', isMuted = false) => {
@@ -1170,20 +1171,16 @@ Halo *${person.name}*, sistem radar mendeteksi posisi kamu saat ini berada sejau
                 </div>
 
                 <div className="map-iframe-container">
-                  <iframe
-                    title="Peta Kopi Kenangan Kemang Timur"
-                    src={MEETING_INFO.embedMapUrl}
-                    width="100%"
-                    height="280"
-                    style={{ border: 0 }}
-                    allowFullScreen=""
-                    loading="lazy"
-                    referrerPolicy="no-referrer-when-downgrade"
+                  <VenueMapPreview
+                    lat={MEETING_INFO.coordinates.lat}
+                    lng={MEETING_INFO.coordinates.lng}
+                    venueName={MEETING_INFO.venue}
+                    address={MEETING_INFO.fullAddress}
                   />
                   <div className="map-iframe-overlay-hud">
                     <span className="map-hud-pin">
                       <MapPin size={14} className="text-red-500 animate-bounce" />
-                      TITIK KUMPUL RESMI
+                      TITIK KUMPUL RESMI (KEMANG TIMUR)
                     </span>
                   </div>
                 </div>
