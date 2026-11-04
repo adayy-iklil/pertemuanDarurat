@@ -1,0 +1,105 @@
+export const MEETING_INFO = {
+  code: 'ALRT-09 / KK-KMT / 05-NOV-2026',
+  status: 'SIAGA MERAH — WAJIB MERAPAT',
+  dayDate: 'Kamis, 5 November 2026',
+  isoDate: '2026-11-05',
+  timeStart: '17.30',
+  timeEnd: '21.00',
+  timezone: 'WIB',
+  venue: 'Kopi Kenangan Kemang Timur',
+  address: 'Jl. Kemang Timur, Bangka, Mampang Prapatan, Jakarta Selatan',
+  mapsUrl: 'https://www.google.com/maps/search/?api=1&query=Kopi+Kenangan+Kemang+Timur',
+};
+
+export const INVITEES = [
+  {
+    id: 'aday',
+    no: '01',
+    name: 'Aday',
+    tag: 'PANGGILAN UTAMA',
+    note: 'Wajib sudah di lokasi jam 17.30 teng. Dilarang ngaret.',
+    defaultStatus: 'hadir',
+  },
+  {
+    id: 'kol',
+    no: '02',
+    name: 'Kol',
+    tag: 'PANGGILAN UTAMA',
+    note: 'Kehadiran mutlak. Tidak ada izin susulan.',
+    defaultStatus: 'hadir',
+  },
+  {
+    id: 'dapi',
+    no: '03',
+    name: 'Dapi',
+    tag: 'PENANGGUNG JAWAB',
+    note: 'Pemegang komando titik kumpul Kopi Kenangan Kemang Timur.',
+    defaultStatus: 'hadir',
+  },
+  {
+    id: 'hilal',
+    no: '04',
+    name: 'Hilal',
+    tag: 'PANGGILAN UTAMA',
+    note: 'Jangan tiba-tiba hilang kabar pas sore.',
+    defaultStatus: 'belum',
+  },
+  {
+    id: 'ucup',
+    no: '05',
+    name: 'Ucup',
+    tag: 'PANGGILAN UTAMA',
+    note: 'Merapat tepat waktu, amankan meja buat 9 orang.',
+    defaultStatus: 'belum',
+  },
+  {
+    id: 'ayas',
+    no: '06',
+    name: 'Ayas',
+    tag: 'PANGGILAN UTAMA',
+    note: 'Wajib datang langsung, tidak terima titip salam.',
+    defaultStatus: 'belum',
+  },
+  {
+    id: 'bina',
+    no: '07',
+    name: 'Bina',
+    tag: 'PANGGILAN UTAMA',
+    note: 'Ditunggu dari 17.30 sampai bubar jam 21.00.',
+    defaultStatus: 'belum',
+  },
+  {
+    id: 'talita',
+    no: '08',
+    name: 'Talita',
+    tag: 'PANGGILAN UTAMA',
+    note: 'Wajib hadir. Personel ke-8 penentu formasi lengkap.',
+    defaultStatus: 'belum',
+  },
+  {
+    id: 'awa',
+    no: '09',
+    name: 'Awa',
+    tag: 'PANGGILAN UTAMA',
+    note: 'Penutup kuorum 9 orang. Tidak boleh absen.',
+    defaultStatus: 'belum',
+  },
+];
+
+export const EMERGENCY_RULES = [
+  {
+    code: '01',
+    title: 'Formasi Penuh 9 Orang',
+    desc: 'Aday, Kol, Dapi, Hilal, Ucup, Ayas, Bina, Talita, dan Awa wajib hadir fisik di Kopi Kenangan Kemang Timur.',
+  },
+  {
+    code: '02',
+    title: 'Batas Waktu Merapat 17.30 WIB',
+    desc: 'Kamis, 5 November 2026 pukul 17.30 sampai 21.00 WIB. Bilang "OTW" hanya sah kalau sudah di jalan.',
+  },
+  {
+    code: '03',
+    title: 'Bebas Wacana & Alasan Dadakan',
+    desc: 'Alasan ketiduran, mager, atau mendadak lupa jadwal otomatis ditolak sistem.',
+  },
+];
