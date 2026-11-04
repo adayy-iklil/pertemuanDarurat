@@ -1711,3 +1711,225 @@ body {
     text-align: center;
   }
 }
+
+
+/* =========================================================
+   PUBLIC RADAR & USER MONITOR SECTION (TANPA DB)
+   ========================================================= */
+.radar-monitor-section {
+  padding: 1.5rem 2.25rem;
+  border-bottom: 1px solid var(--border-line);
+  background: #090a0f;
+}
+
+.radar-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.15rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.btn-trigger-1800 {
+  background: #181b24;
+  color: #ff6b6b;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  padding: 0.55rem 1rem;
+  border-radius: 4px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  transition: all 0.2s ease;
+}
+
+.btn-trigger-1800:hover,
+.btn-trigger-1800.active-warning {
+  background: #dc2626;
+  color: #ffffff;
+  border-color: #ff4444;
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.5);
+}
+
+.geofence-alert-box {
+  background: rgba(185, 28, 28, 0.12);
+  border: 1px solid var(--red-alert);
+  border-left: 4px solid #ef4444;
+  padding: 1.15rem;
+  border-radius: 4px;
+  margin-top: 1rem;
+  animation: slide-toast 0.2s ease;
+}
+
+.violators-quick-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 0.65rem;
+}
+
+.violator-card {
+  background: #12141c;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  padding: 0.75rem 0.95rem;
+  border-radius: 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.violator-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.btn-send-wa-single {
+  background: #15803d;
+  color: #ffffff;
+  padding: 0.45rem 0.75rem;
+  border-radius: 4px;
+  text-decoration: none;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.btn-send-wa-single:hover {
+  background: #16a34a;
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.5);
+}
+
+/* User Control & Transmitter Section */
+.user-control-section {
+  padding: 1.25rem 2.25rem;
+  background: #0f1118;
+  border-bottom: 1px solid var(--border-line);
+}
+
+.user-control-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.85rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.person-chips-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.person-select-chip {
+  background: #161822;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-line);
+  padding: 0.4rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  transition: all 0.15s ease;
+}
+
+.person-select-chip:hover {
+  color: #ffffff;
+  background: #202434;
+}
+
+.person-select-chip.active {
+  background: var(--red-alert);
+  border-color: var(--red-bright);
+  color: #ffffff;
+  box-shadow: 0 0 14px rgba(239, 68, 68, 0.35);
+}
+
+.selected-user-card {
+  background: #141720;
+  border: 1px solid var(--border-line);
+  border-radius: 4px;
+  padding: 1rem 1.15rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.selected-user-meta {
+  flex: 1;
+  min-width: 260px;
+}
+
+.selected-user-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.btn-gps-stream {
+  background: rgba(16, 185, 129, 0.18);
+  color: #34d399;
+  border: 1px solid #10b981;
+  padding: 0.5rem 0.95rem;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  transition: all 0.15s ease;
+}
+
+.btn-gps-stream.streaming {
+  background: #10b981;
+  color: #000000;
+  box-shadow: 0 0 14px rgba(16, 185, 129, 0.5);
+}
+
+.sim-quick-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.btn-sim-quick {
+  background: #1a1d28;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-line);
+  padding: 0.35rem 0.65rem;
+  border-radius: 3px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-sim-quick:hover {
+  background: #262a3a;
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.manifest-contact-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 0.45rem;
+  border-top: 1px dashed var(--border-line);
+}

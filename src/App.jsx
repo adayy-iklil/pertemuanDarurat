@@ -21,11 +21,22 @@ import {
   CheckCircle2,
   Radio,
   Car,
-  BellRing
+  BellRing,
+  Send,
+  Smartphone,
+  Crosshair,
+  RefreshCw,
+  ChevronDown
 } from 'lucide-react';
-import { MEETING_INFO, INVITEES, EMERGENCY_RULES } from './data/summonsData';
+import {
+  MEETING_INFO,
+  INVITEES,
+  EMERGENCY_RULES,
+  calculateDistanceMeters
+} from './data/summonsData';
+import TacticalRadarMap from './components/TacticalRadarMap';
 
-// Senior Web Dev Polish: Pure Web Audio API Sound Synthesizer (No external assets required)
+// Pure Web Audio API Sound Synthesizer (Zero External Audio Assets)
 const playTacticalSound = (type = 'click', isMuted = false) => {
   if (isMuted || typeof window === 'undefined') return;
   try {
@@ -49,9 +60,9 @@ const playTacticalSound = (type = 'click', isMuted = false) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = 'triangle';
-      osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
-      osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.08); // E5
-      osc.frequency.setValueAtTime(783.99, ctx.currentTime + 0.16); // G5
+      osc.frequency.setValueAtTime(523.25, ctx.currentTime);
+      osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.08);
+      osc.frequency.setValueAtTime(783.99, ctx.currentTime + 0.16);
       gain.gain.setValueAtTime(0.15, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.28);
       osc.connect(gain);
@@ -72,9 +83,7 @@ const playTacticalSound = (type = 'click', isMuted = false) => {
       osc.start();
       osc.stop(ctx.currentTime + 0.3);
     }
-  } catch {
-    // Graceful fallback if audio is disabled
-  }
+  } catch {}
 };
 
 // Canvas Particle Confetti for Celebratory Moments
@@ -112,7 +121,7 @@ const triggerCanvasConfetti = () => {
     particles.forEach((p) => {
       p.x += p.vx;
       p.y += p.vy;
-      p.vy += 0.35; // gravity
+      p.vy += 0.35;
       p.rotation += p.rotSpeed;
       p.opacity -= 0.012;
 
@@ -141,44 +150,53 @@ export default function App() {
   const [activeTabFilter, setActiveTabFilter] = useState('all');
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
+  const [copiedKey, setCopiedKey] = useState(null);
+  const [now, setNow] = useState(() => new Date());
 
-  // Selected target for personalized fast RSVP
+  // Active identity selected (Default Dapi)
   const [selectedId, setSelectedId] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     const fromUrl = params.get('untuk')?.toLowerCase();
     if (fromUrl && INVITEES.some((p) => p.id === fromUrl)) {
       return fromUrl;
     }
-    return localStorage.getItem('pd_person_v3') || 'dapi';
+    return localStorage.getItem('pd_person_v4') || 'dapi';
   });
 
-  // Attendance status persistence
-  const [statuses, setStatuses] = useState(() => {
-    const saved = localStorage.getItem('pd_statuses_v3');
+  // Client-Side Locations & Statuses (Tanpa DB, disimpan di localStorage)
+  const [personnelLocations, setPersonnelLocations] = useState(() => {
+    const saved = localStorage.getItem('pd_live_coords_v4');
     if (saved) {
       try {
         return JSON.parse(saved);
-      } catch {
-        // ignore
-      }
+      } catch {}
     }
     const init = {};
     INVITEES.forEach((p) => {
-      init[p.id] = p.defaultStatus;
+      init[p.id] = {
+        lat: p.lat,
+        lng: p.lng,
+        status: p.defaultStatus,
+        updatedAt: 'Baru saja',
+      };
     });
     return init;
   });
 
-  const [copiedKey, setCopiedKey] = useState(null);
-  const [now, setNow] = useState(() => new Date());
+  // Real device GPS active state
+  const [isGpsStreaming, setIsGpsStreaming] = useState(false);
+  const [geoWatchId, setGeoWatchId] = useState(null);
+
+  // Manual Trigger for 18:00 WIB Geofence Check
+  const [is1800Simulated, setIs1800Simulated] = useState(false);
 
   useEffect(() => {
-    localStorage.setItem('pd_person_v3', selectedId);
+    localStorage.setItem('pd_person_v4', selectedId);
   }, [selectedId]);
 
   useEffect(() => {
-    localStorage.setItem('pd_statuses_v3', JSON.stringify(statuses));
-  }, [statuses]);
+    localStorage.setItem('pd_live_coords_v4', JSON.stringify(personnelLocations));
+  }, [personnelLocations]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -191,7 +209,7 @@ export default function App() {
     setToastMessage(msg);
     setTimeout(() => {
       setToastMessage((current) => (current === msg ? null : current));
-    }, 2800);
+    }, 3200);
   };
 
   const selectedPerson = useMemo(
@@ -199,81 +217,161 @@ export default function App() {
     [selectedId]
   );
 
-  // Countdown timer for Kamis, 5 November 2026 17:30 WIB
-  const countdown = useMemo(() => {
-    const targetStart = new Date('2026-11-05T17:30:00+07:00');
-    const targetEnd = new Date('2026-11-05T21:00:00+07:00');
+  // Computed Personnel with real-time distance from Kopi Kenangan Kemang Timur
+  const enrichedPersonnel = useMemo(() => {
+    return INVITEES.map((person) => {
+      const loc = personnelLocations[person.id] || {
+        lat: person.lat,
+        lng: person.lng,
+        status: person.defaultStatus,
+        updatedAt: 'Awal',
+      };
 
-    const diffStart = targetStart.getTime() - now.getTime();
-    const diffEnd = targetEnd.getTime() - now.getTime();
+      const distance = calculateDistanceMeters(
+        loc.lat,
+        loc.lng,
+        MEETING_INFO.coordinates.lat,
+        MEETING_INFO.coordinates.lng
+      );
 
-    if (diffStart > 0) {
-      const totalSec = Math.floor(diffStart / 1000);
-      const d = Math.floor(totalSec / 86400);
-      const h = Math.floor((totalSec % 86400) / 3600);
-      const m = Math.floor((totalSec % 3600) / 60);
-      const s = totalSec % 60;
+      const isInside = distance <= MEETING_INFO.radiusMeters;
+
       return {
-        state: 'UPCOMING',
-        badge: 'HITUNG MUNDUR MISI',
-        label: 'MENUJU KAMIS, 5 NOV 2026 — 17.30 WIB',
-        days: String(d).padStart(2, '0'),
-        hours: String(h).padStart(2, '0'),
-        minutes: String(m).padStart(2, '0'),
-        seconds: String(s).padStart(2, '0'),
+        ...person,
+        latitude: loc.lat,
+        longitude: loc.lng,
+        distance_meters: distance,
+        is_inside_radius: isInside ? 1 : 0,
+        status: loc.status || person.defaultStatus,
+        updated_at: loc.updatedAt,
       };
-    } else if (diffEnd > 0) {
-      const totalSec = Math.floor(diffEnd / 1000);
-      const h = Math.floor(totalSec / 3600);
-      const m = Math.floor((totalSec % 3600) / 60);
-      const s = totalSec % 60;
-      return {
-        state: 'ACTIVE',
-        badge: 'STATUS AKTIF',
-        label: 'PERTEMUAN DARURAT SEDANG BERLANGSUNG DI KEMANG TIMUR!',
-        days: '00',
-        hours: String(h).padStart(2, '0'),
-        minutes: String(m).padStart(2, '0'),
-        seconds: String(s).padStart(2, '0'),
-      };
-    } else {
-      return {
-        state: 'ENDED',
-        badge: 'SELESAI',
-        label: 'PANGGILAN 5 NOV 2026 TELAH DITUTUP RESMI',
-        days: '00',
-        hours: '00',
-        minutes: '00',
-        seconds: '00',
-      };
-    }
-  }, [now]);
+    });
+  }, [personnelLocations]);
 
   // Attendance metrics
   const confirmedCount = useMemo(() => {
-    return Object.values(statuses).filter((s) => s === 'hadir').length;
-  }, [statuses]);
+    return enrichedPersonnel.filter((p) => p.status === 'hadir').length;
+  }, [enrichedPersonnel]);
 
   const otwCount = useMemo(() => {
-    return Object.values(statuses).filter((s) => s === 'otw').length;
-  }, [statuses]);
+    return enrichedPersonnel.filter((p) => p.status === 'otw').length;
+  }, [enrichedPersonnel]);
 
   const quorumScore = confirmedCount + otwCount;
   const quorumPercentage = Math.round((quorumScore / INVITEES.length) * 100);
 
-  const setPersonStatus = (id, status) => {
-    playTacticalSound(status === 'hadir' ? 'success' : 'click', isAudioMuted);
-    setStatuses((prev) => ({
-      ...prev,
-      [id]: status,
-    }));
-    const pName = INVITEES.find((p) => p.id === id)?.name || id;
-    const statusLabel =
-      status === 'hadir' ? 'SIAP HADIR' : status === 'otw' ? 'SEDANG OTW' : 'BELUM LAPOR';
-    showToast(`${pName} diubah ke: ${statusLabel}`);
+  // Geofence statistics
+  const insideGeofenceCount = useMemo(() => {
+    return enrichedPersonnel.filter((p) => p.is_inside_radius === 1).length;
+  }, [enrichedPersonnel]);
 
-    if (status === 'hadir') {
+  const outsideGeofencePersonnel = useMemo(() => {
+    return enrichedPersonnel.filter((p) => p.is_inside_radius === 0);
+  }, [enrichedPersonnel]);
+
+  // Check if current wall-clock time is past 18:00 WIB or manually simulated
+  const isPast1800 = useMemo(() => {
+    if (is1800Simulated) return true;
+    const currentHour = now.getHours();
+    return currentHour >= 18;
+  }, [now, is1800Simulated]);
+
+  // Update a person's coordinates & status
+  const updatePersonLocation = (personId, newLat, newLng, newStatus = null) => {
+    setPersonnelLocations((prev) => {
+      const current = prev[personId] || {};
+      return {
+        ...prev,
+        [personId]: {
+          lat: newLat,
+          lng: newLng,
+          status: newStatus || current.status || 'hadir',
+          updatedAt: new Date().toLocaleTimeString('id-ID', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+          }),
+        },
+      };
+    });
+
+    const pName = INVITEES.find((p) => p.id === personId)?.name || personId;
+    const dist = calculateDistanceMeters(
+      newLat,
+      newLng,
+      MEETING_INFO.coordinates.lat,
+      MEETING_INFO.coordinates.lng
+    );
+    const inside = dist <= MEETING_INFO.radiusMeters;
+
+    playTacticalSound(inside ? 'success' : 'click', isAudioMuted);
+    showToast(
+      `Posisi ${pName} diperbarui: ${dist}m (${
+        inside ? '✅ Dalam 500m' : '🚨 Di Luar 500m'
+      })`
+    );
+
+    if (inside && newStatus === 'hadir') {
       triggerCanvasConfetti();
+    }
+  };
+
+  const setPersonStatusOnly = (personId, newStatus) => {
+    playTacticalSound(newStatus === 'hadir' ? 'success' : 'click', isAudioMuted);
+    setPersonnelLocations((prev) => {
+      const current = prev[personId] || {};
+      return {
+        ...prev,
+        [personId]: {
+          ...current,
+          status: newStatus,
+        },
+      };
+    });
+
+    const pName = INVITEES.find((p) => p.id === personId)?.name || personId;
+    showToast(`Status ${pName} diubah ke: ${newStatus.toUpperCase()}`);
+
+    if (newStatus === 'hadir') {
+      triggerCanvasConfetti();
+    }
+  };
+
+  // Toggle Real Phone / Browser Geolocation
+  const toggleDeviceGps = () => {
+    if (isGpsStreaming) {
+      if (geoWatchId !== null) {
+        navigator.geolocation.clearWatch(geoWatchId);
+        setGeoWatchId(null);
+      }
+      setIsGpsStreaming(false);
+      showToast('GPS Real-time dimatikan');
+    } else {
+      if (!('geolocation' in navigator)) {
+        showToast('Browser Anda tidak mendukung GPS Geolocation');
+        return;
+      }
+
+      setIsGpsStreaming(true);
+      showToast(`Mengaktifkan GPS perangkat untuk ${selectedPerson.name}...`);
+
+      const watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          updatePersonLocation(
+            selectedPerson.id,
+            pos.coords.latitude,
+            pos.coords.longitude,
+            'otw'
+          );
+        },
+        (err) => {
+          showToast(`Gagal membaca GPS: ${err.message}`);
+          setIsGpsStreaming(false);
+        },
+        { enableHighAccuracy: true, timeout: 12000, maximumAge: 5000 }
+      );
+
+      setGeoWatchId(watchId);
     }
   };
 
@@ -289,47 +387,61 @@ export default function App() {
     }
   };
 
-  // WhatsApp Broadcast Template
-  const waText = useMemo(() => {
-    const listText = INVITEES.map((p) => {
-      const st = statuses[p.id];
-      const ket =
-        st === 'hadir'
-          ? '✅ SIAP HADIR'
-          : st === 'otw'
-          ? '🛵 OTW'
-          : '⏳ BELUM KONFIRMASI';
-      return `${p.no}. ${p.name} [${ket}]`;
-    }).join('\n');
+  // WhatsApp Broadcast Template for Group
+  const waGroupText = useMemo(() => {
+    const listText = enrichedPersonnel
+      .map((p) => {
+        const isInside = p.is_inside_radius === 1;
+        const distLabel =
+          p.distance_meters < 1000
+            ? `${p.distance_meters}m`
+            : `${(p.distance_meters / 1000).toFixed(2)}km`;
+        const radiusIcon = isInside ? '🟢 [DALAM 500M]' : '🔴 [DI LUAR 500M]';
+        return `${p.no}. ${p.name} (${p.phone}) — Jarak: ${distLabel} ${radiusIcon}`;
+      })
+      .join('\n');
 
-    return `🚨 *PERINGATAN DARURAT // SIAGA MERAH* 🚨
-*Wajib Merapat Tanpa Wacana — Formasi 9 Orang!*
+    return `🚨 *PERINGATAN DARURAT RADIUS GEOFENCE (BATAS 18.00 WIB)* 🚨
+*Titik Kumpul:* ${MEETING_INFO.venue}
+*Radius Wajib:* 500 Meter
+*Maps:* ${MEETING_INFO.mapsUrl}
 
-📅 *Hari/Tanggal:* ${MEETING_INFO.dayDate}
-⏰ *Waktu:* ${MEETING_INFO.timeStart} – ${MEETING_INFO.timeEnd} ${MEETING_INFO.timezone}
-📍 *Lokasi:* ${MEETING_INFO.venue}
-📌 *Alamat:* ${MEETING_INFO.fullAddress}
-🗺️ *Link Google Maps:* ${MEETING_INFO.mapsUrl}
-
-📋 *MANIFEST KUORUM (${quorumScore}/${INVITEES.length}):*
+📋 *STATUS POSISI 9 PASUKAN:*
 ${listText}
 
-⚠️ _Peringatan: Seluruh personel wajib hadir fisik. Dilarang ngaret & dilarang izin dadakan!_`;
-  }, [statuses, quorumScore]);
+⚠️ _Peringatan: Seluruh personel yang masih di luar 500m wajib tancap gas sekarang juga tanpa alasan wacana!_`;
+  }, [enrichedPersonnel]);
+
+  // Generate specific WhatsApp urgent notification for a single person
+  const createPersonalWaAlertLink = (person) => {
+    const distLabel =
+      person.distance_meters < 1000
+        ? `${person.distance_meters} meter`
+        : `${(person.distance_meters / 1000).toFixed(2)} km`;
+
+    const text = `🚨 *PERINGATAN DARURAT (BATAS 18.00 WIB)* 🚨
+Halo *${person.name}*, sistem radar mendeteksi posisi kamu saat ini berada sejauh *${distLabel}* di LUAR radius 500 meter dari Kopi Kenangan Kemang Timur.
+
+📍 *Titik Kumpul:* ${MEETING_INFO.venue}
+🗺️ *Link Lokasi:* ${MEETING_INFO.mapsUrl}
+⚠️ *Instruksi:* Jam 18.00 WIB sudah berlaku! Segera merapat sekarang juga, dilarang ngaret & dilarang wacana!`;
+
+    return `https://wa.me/${person.phone}?text=${encodeURIComponent(text)}`;
+  };
 
   // Filtered invitees
   const filteredInvitees = useMemo(() => {
     if (activeTabFilter === 'hadir') {
-      return INVITEES.filter((p) => statuses[p.id] === 'hadir');
+      return enrichedPersonnel.filter((p) => p.status === 'hadir');
     }
     if (activeTabFilter === 'otw') {
-      return INVITEES.filter((p) => statuses[p.id] === 'otw');
+      return enrichedPersonnel.filter((p) => p.status === 'otw');
     }
     if (activeTabFilter === 'belum') {
-      return INVITEES.filter((p) => statuses[p.id] === 'belum');
+      return enrichedPersonnel.filter((p) => p.status === 'belum');
     }
-    return INVITEES;
-  }, [activeTabFilter, statuses]);
+    return enrichedPersonnel;
+  }, [activeTabFilter, enrichedPersonnel]);
 
   return (
     <div className="dark-military-theme">
@@ -361,7 +473,7 @@ ${listText}
             <div className="lightbox-header">
               <div className="flex items-center gap-2">
                 <ShieldAlert size={18} className="text-red-500" />
-                <span className="font-mono text-xs tracking-widest text-red-400">
+                <span className="font-mono text-xs tracking-widest text-red-400 font-bold">
                   INSPEKSI VISUAL BERKAS #01 // 9 PERSONEL RESMI
                 </span>
               </div>
@@ -381,7 +493,7 @@ ${listText}
                 className="lightbox-img"
               />
               <div className="lightbox-hud-footer">
-                <span>TARGET: ADAY, KOL, DAPI, HILAL, UCUP, AYAS, BINA, TALITA, AWA</span>
+                <span>TARGET: DAPI, ADAI, KHAL, BINA, UCUP, HILAL, AWA, AYAS, TALITA</span>
                 <span className="text-red-400">STATUS: TERVERIFIKASI ASLI</span>
               </div>
             </div>
@@ -394,9 +506,10 @@ ${listText}
         <div className="siren-status-left">
           <span className="blinking-led" />
           <span className="siren-headline">
-            PERINGATAN DARURAT // {MEETING_INFO.dayDate.toUpperCase()} // {MEETING_INFO.timeStart} – {MEETING_INFO.timeEnd} {MEETING_INFO.timezone} // {MEETING_INFO.venue.toUpperCase()}
+            RADAR PERTEMUAN DARURAT // BATAS 18.00 WIB // RADIUS 500M // {MEETING_INFO.venue.toUpperCase()}
           </span>
         </div>
+
         <div className="siren-controls">
           <button
             type="button"
@@ -410,6 +523,7 @@ ${listText}
             {isAudioMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
             <span>{isAudioMuted ? 'AUDIO: OFF' : 'AUDIO: ON'}</span>
           </button>
+
           <button
             type="button"
             className="hud-toggle-btn alert-toggle"
@@ -441,31 +555,255 @@ ${listText}
               </span>
             </div>
             <div className="meta-cell">
-              <span className="meta-label">KESIAPAN KUORUM</span>
-              <span className="meta-val font-mono text-amber-400">
-                {quorumScore} / {INVITEES.length} Personel Merapat ({quorumPercentage}%)
+              <span className="meta-label">GEOFENCE RADIUS 500M</span>
+              <span className="meta-val font-mono text-emerald-400">
+                {insideGeofenceCount} / 9 Masuk Radius ({outsideGeofencePersonnel.length} Terlambat)
               </span>
             </div>
           </div>
 
-          {/* Quorum Progress Bar HUD */}
-          <div className="quorum-meter-wrapper">
-            <div className="quorum-meter-header">
-              <div className="flex items-center gap-2">
-                <ShieldAlert size={14} className="text-red-500" />
-                <span className="meter-label">INDIKATOR KELENGKAPAN PASUKAN</span>
+          {/* ============================================================== */}
+          {/* RADAR GPS LIVE & MONITOR POSISI USER (BISA DILIHAT SEMUA ORANG) */}
+          {/* ============================================================== */}
+          <section className="radar-monitor-section">
+            <div className="radar-section-header">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <Crosshair size={18} className="text-red-500 animate-pulse" />
+                  <h2 className="font-mono text-base font-extrabold text-white tracking-wide">
+                    PETA RADAR LIVE // POSISI 9 PASUKAN & GEOFENCE 500M
+                  </h2>
+                </div>
+                <p className="text-xs text-zinc-400">
+                  Semua personel dapat melihat posisi satu sama lain secara transparan di peta interaktif. Lingkaran merah merupakan batas radius <strong>500 meter</strong> dari Kopi Kenangan Kemang Timur.
+                </p>
               </div>
-              <span className="meter-val font-mono">
-                {confirmedCount} Hadir • {otwCount} OTW • {INVITEES.length - quorumScore} Belum Lapor
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  className={`btn-trigger-1800 font-mono ${isPast1800 ? 'active-warning' : ''}`}
+                  onClick={() => {
+                    setIs1800Simulated((prev) => !prev);
+                    playTacticalSound('siren', isAudioMuted);
+                    showToast(
+                      !is1800Simulated
+                        ? 'Simulasi Jam 18.00 WIB Diaktifkan: Pelanggar Radius Terdeteksi!'
+                        : 'Simulasi Jam 18.00 WIB Dinonaktifkan'
+                    );
+                  }}
+                >
+                  <Clock size={15} />
+                  {isPast1800
+                    ? '⚠️ BATAS 18.00 WIB AKTIF (KLIK UNTUK RESET)'
+                    : '⚡ SIMULASI CEK JAM 18.00 WIB'}
+                </button>
+              </div>
+            </div>
+
+            {/* Tactical Leaflet Map with all 9 Personnel Pins */}
+            <TacticalRadarMap
+              venue={{
+                name: MEETING_INFO.venue,
+                address: MEETING_INFO.fullAddress,
+                lat: MEETING_INFO.coordinates.lat,
+                lng: MEETING_INFO.coordinates.lng,
+                radiusMeters: MEETING_INFO.radiusMeters,
+              }}
+              personnel={enrichedPersonnel}
+              currentUser={selectedPerson}
+            />
+
+            {/* Geofence Status Alert Banner if past 18:00 */}
+            {isPast1800 && (
+              <div className="geofence-alert-box">
+                <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle size={18} className="text-red-500 animate-bounce" />
+                    <span className="font-mono text-sm font-bold text-red-400">
+                      PERINGATAN RESMI: WAKTU SUDAH MELEBIHI 18.00 WIB!
+                    </span>
+                  </div>
+                  <span className="font-mono text-xs text-amber-400 font-bold">
+                    {outsideGeofencePersonnel.length} PERSONEL MASIH DI LUAR RADIUS 500M
+                  </span>
+                </div>
+                <p className="text-xs text-zinc-300 mb-3">
+                  Sesuai protokol darurat, seluruh personel yang belum berada di dalam radius 500m Kopi Kenangan Kemang Timur wajib segera dikirimi notifikasi WhatsApp.
+                </p>
+
+                {outsideGeofencePersonnel.length > 0 ? (
+                  <div className="violators-quick-grid">
+                    {outsideGeofencePersonnel.map((violator) => (
+                      <div key={violator.id} className="violator-card">
+                        <div className="violator-info">
+                          <strong className="text-white text-xs">{violator.name}</strong>
+                          <span className="text-[11px] font-mono text-red-400">
+                            Jarak: {violator.distance_meters < 1000 ? `${violator.distance_meters}m` : `${(violator.distance_meters / 1000).toFixed(2)}km`}
+                          </span>
+                          <span className="text-[10px] text-zinc-500 font-mono">
+                            WA: {violator.phone}
+                          </span>
+                        </div>
+                        <a
+                          href={createPersonalWaAlertLink(violator)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn-send-wa-single font-mono text-xs"
+                          onClick={() => playTacticalSound('click', isAudioMuted)}
+                        >
+                          <Send size={13} />
+                          KIRIM NOTIFIKASI WA
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-xs font-mono text-emerald-400 font-bold py-2">
+                    ✅ SEMUA 9 PERSONEL SUDAH TIBA DI DALAM RADIUS 500M KOPI KENANGAN!
+                  </div>
+                )}
+              </div>
+            )}
+          </section>
+
+          {/* ============================================================== */}
+          {/* USER GPS TRANSMITTER & SIMULASI POSISI (UNTUK MASING-MASING USER) */}
+          {/* ============================================================== */}
+          <section className="user-control-section">
+            <div className="user-control-header">
+              <div className="flex items-center gap-2">
+                <Smartphone size={16} className="text-emerald-400" />
+                <span className="font-mono text-xs font-bold text-white">
+                  BAGIKAN POSISI GPS KAMU KE RADAR
+                </span>
+              </div>
+              <span className="font-mono text-xs text-zinc-400">
+                Pilih Nama Kamu: <strong className="text-white">{selectedPerson.name}</strong>
               </span>
             </div>
-            <div className="meter-bar-track">
-              <div
-                className="meter-bar-fill"
-                style={{ width: `${quorumPercentage}%` }}
-              />
+
+            <div className="user-control-body">
+              <div className="person-chips-inline">
+                {INVITEES.map((p) => {
+                  const currentLoc = enrichedPersonnel.find((x) => x.id === p.id);
+                  const isInside = currentLoc?.is_inside_radius === 1;
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      className={`person-select-chip font-mono ${
+                        selectedId === p.id ? 'active' : ''
+                      }`}
+                      onClick={() => {
+                        setSelectedId(p.id);
+                        playTacticalSound('click', isAudioMuted);
+                      }}
+                    >
+                      <span>{p.name}</span>
+                      <span
+                        className={`status-dot ${isInside ? 'dot-hadir' : 'dot-otw'}`}
+                        title={isInside ? 'Dalam 500m' : 'Di Luar 500m'}
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Status and Action Buttons for Selected User */}
+              <div className="selected-user-card">
+                <div className="selected-user-meta">
+                  <div className="text-xs font-mono text-zinc-300">
+                    Posisi <strong>{selectedPerson.name}</strong> saat ini:{' '}
+                    <span className="text-white font-bold">
+                      {enrichedPersonnel.find((p) => p.id === selectedPerson.id)?.distance_meters} meter
+                    </span>{' '}
+                    dari Kopi Kenangan (
+                    {enrichedPersonnel.find((p) => p.id === selectedPerson.id)?.is_inside_radius === 1 ? (
+                      <span className="text-emerald-400 font-bold">Aman di Dalam 500m</span>
+                    ) : (
+                      <span className="text-red-400 font-bold">Di Luar Radius 500m</span>
+                    )}
+                    )
+                  </div>
+                  <div className="text-[11px] text-zinc-400 font-mono mt-0.5">
+                    Nomor WhatsApp Terhubung: <strong>{selectedPerson.phone}</strong>
+                  </div>
+                </div>
+
+                <div className="selected-user-buttons">
+                  <button
+                    type="button"
+                    className={`btn-gps-stream font-mono ${isGpsStreaming ? 'streaming' : ''}`}
+                    onClick={toggleDeviceGps}
+                  >
+                    <Radio size={14} className={isGpsStreaming ? 'animate-pulse' : ''} />
+                    {isGpsStreaming ? 'GPS HP AKTIF (STREAMING)' : 'AKTIFKAN GPS HP SAYA'}
+                  </button>
+
+                  <div className="sim-quick-actions">
+                    <span className="text-[11px] font-mono text-zinc-400">Atau Pilih Simulasi:</span>
+                    <button
+                      type="button"
+                      className="btn-sim-quick font-mono"
+                      onClick={() =>
+                        updatePersonLocation(
+                          selectedPerson.id,
+                          MEETING_INFO.coordinates.lat,
+                          MEETING_INFO.coordinates.lng,
+                          'hadir'
+                        )
+                      }
+                    >
+                      ☕ Sudah Sampai di Kopi Kenangan (0m)
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-sim-quick font-mono"
+                      onClick={() =>
+                        updatePersonLocation(
+                          selectedPerson.id,
+                          -6.273100,
+                          106.824200,
+                          'otw'
+                        )
+                      }
+                    >
+                      🛵 Dekat Indomaret Kemang (225m)
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-sim-quick font-mono"
+                      onClick={() =>
+                        updatePersonLocation(
+                          selectedPerson.id,
+                          -6.265500,
+                          106.825800,
+                          'otw'
+                        )
+                      }
+                    >
+                      🚗 Macet di Mampang (686m)
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-sim-quick font-mono"
+                      onClick={() =>
+                        updatePersonLocation(
+                          selectedPerson.id,
+                          -6.289500,
+                          106.819000,
+                          'belum'
+                        )
+                      }
+                    >
+                      🏠 Masih di Rumah (2.1 km)
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
+          </section>
 
           {/* Hero Section */}
           <section className="hero-grid">
@@ -488,7 +826,7 @@ ${listText}
                 <p className="hero-desc">
                   Surat instruksi mutlak ditujukan kepada{' '}
                   <strong>
-                    Aday, Kol, Dapi, Hilal, Ucup, Ayas, Bina, Talita, dan Awa
+                    Dapi, Adai, Khal, Bina, Ucup, Hilal, Awa, Ayas, dan Talita
                   </strong>
                   . Sembilan orang yang terdata wajib hadir fisik di{' '}
                   <strong className="text-white">{MEETING_INFO.venue}</strong> tanpa pengecualian dan tanpa alasan dadakan.
@@ -541,15 +879,14 @@ ${listText}
                 </a>
 
                 <a
-                  href={MEETING_INFO.calendarLink}
+                  href={`https://wa.me/?text=${encodeURIComponent(waGroupText)}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="btn-outline-tactical"
-                  title="Simpan ke Google Calendar"
+                  className="btn-whatsapp"
                   onClick={() => playTacticalSound('click', isAudioMuted)}
                 >
-                  <Calendar size={15} />
-                  PASANG REMINDER
+                  <Share2 size={15} />
+                  KIRIM RADAR KE GRUP WA
                 </a>
               </div>
             </div>
@@ -580,7 +917,6 @@ ${listText}
                   className="evidence-photo tactical"
                 />
 
-                {/* Tech Corner Overlays */}
                 <div className="corner-bracket top-left" />
                 <div className="corner-bracket top-right" />
                 <div className="corner-bracket bottom-left" />
@@ -619,119 +955,41 @@ ${listText}
             <div className="countdown-info-col">
               <div className="countdown-badge">
                 <Clock size={13} className="text-red-400" />
-                {countdown.badge}
+                HITUNG MUNDUR OPERASI
               </div>
-              <div className="countdown-info-title">{countdown.label}</div>
+              <div className="countdown-info-title">
+                MENUJU KAMIS, 5 NOV 2026 — 17.30 WIB
+              </div>
               <div className="countdown-info-sub">
-                {MEETING_INFO.venue} • {MEETING_INFO.timeStart} – {MEETING_INFO.timeEnd} {MEETING_INFO.timezone}
+                {MEETING_INFO.venue} • Batas Radius Geofence: 18.00 WIB
               </div>
             </div>
 
             <div className="timer-blocks">
               <div className="timer-cell">
-                <span className="timer-num font-mono">{countdown.days}</span>
+                <span className="timer-num font-mono">00</span>
                 <span className="timer-lbl">Hari</span>
               </div>
               <div className="timer-sep">:</div>
               <div className="timer-cell">
-                <span className="timer-num font-mono">{countdown.hours}</span>
-                <span className="timer-lbl">Jam</span>
+                <span className="timer-num font-mono">
+                  {String(now.getHours()).padStart(2, '0')}
+                </span>
+                <span className="timer-lbl">Jam Sekarang</span>
               </div>
               <div className="timer-sep">:</div>
               <div className="timer-cell">
-                <span className="timer-num font-mono">{countdown.minutes}</span>
+                <span className="timer-num font-mono">
+                  {String(now.getMinutes()).padStart(2, '0')}
+                </span>
                 <span className="timer-lbl">Menit</span>
               </div>
               <div className="timer-sep">:</div>
               <div className="timer-cell red-sec">
-                <span className="timer-num font-mono">{countdown.seconds}</span>
-                <span className="timer-lbl">Detik</span>
-              </div>
-            </div>
-          </section>
-
-          {/* Quick Identity Selector Bar */}
-          <section className="personal-bar">
-            <div className="personal-bar-header">
-              <div className="flex items-center gap-2">
-                <Users size={16} className="text-red-500" />
-                <span className="personal-bar-title">
-                  PILIH IDENTITAS LO UNTUK LAPOR CEPAT:
+                <span className="timer-num font-mono">
+                  {String(now.getSeconds()).padStart(2, '0')}
                 </span>
-              </div>
-              <span className="text-xs text-zinc-400 font-mono">
-                Target Terpilih: <strong className="text-white">{selectedPerson.name}</strong>
-              </span>
-            </div>
-
-            <div className="person-chips">
-              {INVITEES.map((p) => {
-                const st = statuses[p.id];
-                return (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => {
-                      playTacticalSound('click', isAudioMuted);
-                      setSelectedId(p.id);
-                    }}
-                    className={`person-chip ${selectedId === p.id ? 'active' : ''}`}
-                  >
-                    <span className="chip-no font-mono">{p.no}</span>
-                    <span className="chip-name">{p.name}</span>
-                    <span
-                      className={`status-dot ${
-                        st === 'hadir'
-                          ? 'dot-hadir'
-                          : st === 'otw'
-                          ? 'dot-otw'
-                          : 'dot-belum'
-                      }`}
-                    />
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Directive Box for Selected User */}
-            <div className="personal-directive-box">
-              <div className="directive-info">
-                <div className="directive-tag font-mono">
-                  INSTRUKSI OPERASI KHUSUS #{selectedPerson.no} — {selectedPerson.name.toUpperCase()} [{selectedPerson.role}]
-                </div>
-                <div className="directive-text">{selectedPerson.note}</div>
-              </div>
-
-              <div className="directive-actions">
-                <button
-                  type="button"
-                  className={`btn-action-rsvp hadir ${
-                    statuses[selectedPerson.id] === 'hadir' ? 'is-active' : ''
-                  }`}
-                  onClick={() => setPersonStatus(selectedPerson.id, 'hadir')}
-                >
-                  <CheckCircle2 size={16} />
-                  GUE SIAP HADIR
-                </button>
-                <button
-                  type="button"
-                  className={`btn-action-rsvp otw ${
-                    statuses[selectedPerson.id] === 'otw' ? 'is-active' : ''
-                  }`}
-                  onClick={() => setPersonStatus(selectedPerson.id, 'otw')}
-                >
-                  <Car size={16} />
-                  SEDANG OTW
-                </button>
-                <button
-                  type="button"
-                  className={`btn-action-rsvp belum ${
-                    statuses[selectedPerson.id] === 'belum' ? 'is-active' : ''
-                  }`}
-                  onClick={() => setPersonStatus(selectedPerson.id, 'belum')}
-                >
-                  BELUM KONFIRMASI
-                </button>
+                <span className="timer-lbl">Detik</span>
               </div>
             </div>
           </section>
@@ -743,10 +1001,9 @@ ${listText}
                 <div className="section-kicker font-mono">
                   DAFTAR ABSENSI KESIAPAN FISIK
                 </div>
-                <h2 className="section-heading">Manifest Pasukan Lengkap</h2>
+                <h2 className="section-heading">Manifest 9 Pasukan & Nomor WhatsApp</h2>
               </div>
 
-              {/* Filters */}
               <div className="filter-pill-group">
                 <button
                   type="button"
@@ -781,13 +1038,11 @@ ${listText}
 
             <div className="manifest-grid">
               {filteredInvitees.map((person) => {
-                const st = statuses[person.id] || 'belum';
-                const badgeLabel =
-                  st === 'hadir'
-                    ? 'SIAP HADIR'
-                    : st === 'otw'
-                    ? 'SEDANG OTW'
-                    : 'BELUM LAPOR';
+                const isInside = person.is_inside_radius === 1;
+                const distLabel =
+                  person.distance_meters < 1000
+                    ? `${person.distance_meters}m`
+                    : `${(person.distance_meters / 1000).toFixed(2)}km`;
 
                 return (
                   <div
@@ -801,42 +1056,63 @@ ${listText}
                         <span className="manifest-no font-mono">
                           NO. {person.no} • {person.role}
                         </span>
-                        <span className={`manifest-badge ${st}`}>
-                          {st === 'hadir' && <CheckCircle2 size={12} />}
-                          {st === 'otw' && <Car size={12} />}
-                          {st === 'belum' && <AlertTriangle size={12} />}
-                          {badgeLabel}
+                        <span
+                          className={`manifest-badge ${
+                            isInside ? 'hadir' : 'belum'
+                          }`}
+                        >
+                          {isInside ? (
+                            <>
+                              <CheckCircle2 size={12} /> {distLabel} (AMAN)
+                            </>
+                          ) : (
+                            <>
+                              <AlertTriangle size={12} /> {distLabel} (&gt;500M)
+                            </>
+                          )}
                         </span>
                       </div>
                       <h3 className="manifest-name">{person.name}</h3>
                       <p className="manifest-note">{person.note}</p>
+
+                      <div className="manifest-contact-row font-mono text-[11px] text-zinc-400 mt-2 mb-3">
+                        <span>WA: <strong>{person.phone}</strong></span>
+                        <a
+                          href={`https://wa.me/${person.phone}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-emerald-400 hover:underline flex items-center gap-1"
+                        >
+                          Chat <ExternalLink size={11} />
+                        </a>
+                      </div>
                     </div>
 
                     <div className="manifest-btn-group">
                       <button
                         type="button"
                         className={`status-toggle-btn ${
-                          st === 'hadir' ? 'active-hadir' : ''
+                          person.status === 'hadir' ? 'active-hadir' : ''
                         }`}
-                        onClick={() => setPersonStatus(person.id, 'hadir')}
+                        onClick={() => setPersonStatusOnly(person.id, 'hadir')}
                       >
                         Hadir
                       </button>
                       <button
                         type="button"
                         className={`status-toggle-btn ${
-                          st === 'otw' ? 'active-otw' : ''
+                          person.status === 'otw' ? 'active-otw' : ''
                         }`}
-                        onClick={() => setPersonStatus(person.id, 'otw')}
+                        onClick={() => setPersonStatusOnly(person.id, 'otw')}
                       >
                         OTW
                       </button>
                       <button
                         type="button"
                         className={`status-toggle-btn ${
-                          st === 'belum' ? 'active-belum' : ''
+                          person.status === 'belum' ? 'active-belum' : ''
                         }`}
-                        onClick={() => setPersonStatus(person.id, 'belum')}
+                        onClick={() => setPersonStatusOnly(person.id, 'belum')}
                       >
                         Belum
                       </button>
@@ -847,7 +1123,7 @@ ${listText}
             </div>
           </section>
 
-          {/* Dedicated Location & Venue Radar Section (Requested: Google Maps) */}
+          {/* Dedicated Location & Venue Radar Section */}
           <section id="lokasi-venue" className="section-block venue-radar-section">
             <div className="section-top-bar">
               <div>
@@ -863,7 +1139,6 @@ ${listText}
             </div>
 
             <div className="venue-radar-grid">
-              {/* Left: Map Preview & Address details */}
               <div className="venue-card">
                 <div className="venue-header">
                   <div className="venue-title-row">
@@ -894,7 +1169,6 @@ ${listText}
                   </div>
                 </div>
 
-                {/* Interactive Google Maps Iframe Embed */}
                 <div className="map-iframe-container">
                   <iframe
                     title="Peta Kopi Kenangan Kemang Timur"
@@ -914,7 +1188,6 @@ ${listText}
                   </div>
                 </div>
 
-                {/* Direct Action Navigation Links */}
                 <div className="venue-actions-row">
                   <a
                     href={MEETING_INFO.mapsUrl}
@@ -957,7 +1230,6 @@ ${listText}
                 </div>
               </div>
 
-              {/* Right: Venue Facilities & Tactical Intel */}
               <div className="venue-intel-card">
                 <div className="intel-header font-mono">
                   <ShieldAlert size={16} className="text-red-500" />
@@ -1011,7 +1283,6 @@ ${listText}
 
           {/* Bottom Split: Protocols & WhatsApp Dispatch */}
           <section className="bottom-split">
-            {/* Left: Anti-Wacana Protocol */}
             <div className="split-col">
               <div className="section-kicker font-mono">KETENTUAN MUTLAK</div>
               <h2 className="section-heading mb-4">Protokol Anti-Wacana</h2>
@@ -1029,7 +1300,6 @@ ${listText}
               </div>
             </div>
 
-            {/* Right: WhatsApp Broadcast Generator */}
             <div className="split-col">
               <div className="section-kicker font-mono">SIARAN KOMANDO GRUP</div>
               <h2 className="section-heading mb-4">Siaran Pesan WhatsApp</h2>
@@ -1046,7 +1316,7 @@ ${listText}
                     KUORUM: {quorumScore}/9
                   </span>
                 </div>
-                <pre className="wa-box font-mono">{waText}</pre>
+                <pre className="wa-box font-mono">{waGroupText}</pre>
               </div>
 
               <div className="wa-btn-actions">
@@ -1055,7 +1325,7 @@ ${listText}
                   className="btn-primary-red flex-1"
                   onClick={() =>
                     copyToClipboard(
-                      waText,
+                      waGroupText,
                       'wa',
                       'Pesan siaran WhatsApp berhasil disalin!'
                     )
@@ -1066,7 +1336,7 @@ ${listText}
                 </button>
 
                 <a
-                  href={`https://wa.me/?text=${encodeURIComponent(waText)}`}
+                  href={`https://wa.me/?text=${encodeURIComponent(waGroupText)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="btn-whatsapp flex-1"
@@ -1085,7 +1355,7 @@ ${listText}
               PERTEMUAN DARURAT // {MEETING_INFO.dayDate.toUpperCase()} (17.30 - 21.00 WIB) // {MEETING_INFO.venue.toUpperCase()}
             </div>
             <div className="footer-crew-list">
-              ADAY • KOL • DAPI • HILAL • UCUP • AYAS • BINA • TALITA • AWA
+              DAPI • ADAI • KHAL • BINA • UCUP • HILAL • AWA • AYAS • TALITA
             </div>
             <div className="footer-copyright font-mono">
               KOPI KENANGAN KEMANG TIMUR • JAKARTA SELATAN • PROTOKOL SIAGA MERAH
@@ -1094,6 +1364,5 @@ ${listText}
         </div>
       </main>
     </div>
-
-);
+  );
 }
